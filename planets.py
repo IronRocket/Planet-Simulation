@@ -19,6 +19,30 @@ BLUE = (30,144,255)
 RED = (255,0,0)
 WHITE = (255,255,255)
 
+class Game:
+    def __init__(self):
+        self.bodies = []
+        self.buttons = []
+        self.mouse = pygame.mouse.get_pos()
+        self.selected = None
+        self.mouseUp = False
+
+    def clearSandbox(self):
+        self.bodies = []
+    
+    def getLaunchingSpeed(self):
+        tempMouse = ((self.mouse[0]-c.panx)/c.zoom,(self.mouse[1]-c.pany)/c.zoom)
+        self.mouseUp = False
+        while not self.mouseUp:
+            pygame.draw.circle(WIN, (155,155,155), (tempMouse[0],tempMouse[1]), 12)
+            self.selected.x = tempMouse[0]/SCALE
+            self.selected.y = tempMouse[1]/SCALE
+            self.selected.x_vel = (tempMouse[0]-(self.mouse[0]-c.panx)/c.zoom)*5
+            self.selected.y_vel = (tempMouse[1]-(self.mouse[1]-c.pany)/c.zoom)*5
+        g.bodies.append(self.selected)
+        self.selected = None
+
+
 class Camera:
     def __init__(self) -> None:
         self.zoom = 1
@@ -67,15 +91,16 @@ class Object:
         return force_x, force_y
 
 class Button:
-    def __init__(self,x:int,y:int,width:int,height:int,color:tuple,value:Object,screen:pygame.Surface):
+    def __init__(self,x:int,y:int,width:int,height:int,color:tuple,screen:pygame.Surface,text=''):
         self.x = x
         self.y = y
         self.width = width
         self.height = height
         self.color = color
-        self.value = value
         self.collided = False
-
+        self.text = font.render(text, True, GRAY,(100,100,100) )
+        
+        
         self.screen = screen
         self.screenWidth = screen.get_width()
         self.screenHeight = screen.get_height()
@@ -88,11 +113,16 @@ class Button:
             self.collided = False
             pygame.draw.rect(WIN,(100,100,100),[self.x,self.y,self.width,self.height])
 
+        WIN.blit(self.text,(self.x+(self.width-self.text.get_width())/2, self.y+self.height-self.text.get_height()))
         pygame.draw.circle(WIN, self.color, (self.x+self.width/2,self.y+self.height/2), 10)
+    def clicked(self):
+        if self.collided:
+            g.clearSandbox()
 
 class PlanetButton(Button):
     def __init__(self, x: int, y: int, width: int, height: int, color: tuple, value: Object, screen: pygame.Surface)-> None:
-        super().__init__(x, y, width, height, color, value, screen)
+        super().__init__(x, y, width, height, color, screen)
+        self.value = value
         self.text = font.render(self.value.name, True, GRAY,(100,100,100) )
     def draw(self,mouse:tuple)-> None:
         if self.x <= mouse[0] <= self.x+self.width and self.y <= mouse[1] <= self.y+self.height:
@@ -109,25 +139,9 @@ class PlanetButton(Button):
             return copy.copy(self.value)
         return None
 
-class Creation:
-    def __init__(self):
-        self.mouse = pygame.mouse.get_pos()
-        self.selected = None
-        self.mouseUp = False
-
-    def getLaunchingSpeed(self):
-        tempMouse = ((self.mouse[0]-c.panx)/c.zoom,(self.mouse[1]+c.pany)/c.zoom)
-        self.mouseUp = False
-        while not self.mouseUp:
-            pygame.draw.circle(WIN, (155,155,155), (tempMouse[0],tempMouse[1]), 12)
-            self.selected.x = tempMouse[0]/SCALE
-            self.selected.y = tempMouse[1]/SCALE
-            self.selected.x_vel = (tempMouse[0]-(self.mouse[0]-c.panx)/c.zoom)*5
-            self.selected.y_vel = (tempMouse[1]-(self.mouse[1]+c.pany)/c.zoom)*5
-        bodies.append(self.selected)
-        self.selected = None
-
+    
 c = Camera()
+g = Game()
 
 
 rocket_ship = Object(name="rocket", x= .5*AU, y=0, radius=6, color=WHITE, mass=137438.488)
@@ -152,10 +166,11 @@ e = PlanetButton(10,310,60,60,BLUE,earth,WIN)
 v = PlanetButton(10,370,60,60,venus.color,venus,WIN)
 my = PlanetButton(10,430,60,60,mercury.color,mercury,WIN)
 
-bodies = [copy.copy(earth)]
-buttons = [n,u,s,j,m,e,v,my]
+clear = Button(10,490,60,60,WHITE,WIN,text='clear')
 
-creation = Creation()
+
+g.buttons = [n,u,s,j,m,e,v,my,clear]
+
 
 run = True
 clock = pygame.time.Clock()
@@ -169,16 +184,16 @@ while run:
             run = False
         if event.type == pygame.MOUSEBUTTONDOWN:
 
-            if creation.selected != None and creation.mouseUp:
-                threading.Thread(target=creation.getLaunchingSpeed).start()
+            if g.selected != None and g.mouseUp:
+                threading.Thread(target=g.getLaunchingSpeed).start()
             else:
-                tempPos = creation.mouse
+                tempPos = g.mouse
 
-            for button in buttons:
-                if creation.selected == None:
-                    creation.selected = button.clicked()
+            for button in g.buttons:
+                if g.selected == None:
+                    g.selected = button.clicked()
         if event.type == pygame.MOUSEBUTTONUP:
-            creation.mouseUp = True
+            g.mouseUp = True
         
         if event.type == pygame.MOUSEWHEEL:
             if event.y == 1:
@@ -191,29 +206,29 @@ while run:
     c.panAcceleration += 0.1
     c.keyPressed = False
     if keys[pygame.K_w]:
-        c.pany -= 1+c.panAcceleration
-        c.keyPressed = True
-    if keys[pygame.K_s]:
         c.pany += 1+c.panAcceleration
         c.keyPressed = True
+    if keys[pygame.K_s]:
+        c.pany -= 1+c.panAcceleration
+        c.keyPressed = True
     if keys[pygame.K_d]:
-        c.panx += 1+c.panAcceleration
+        c.panx -= 1+c.panAcceleration
         c.keyPressed = True
     if keys[pygame.K_a]:
-        c.panx -= 1+c.panAcceleration
+        c.panx += 1+c.panAcceleration
         c.keyPressed = True
     if not c.keyPressed:
         c.panAcceleration = 0
     
             
-    creation.mouse = pygame.mouse.get_pos()
-    for button in buttons:
-        button.draw(creation.mouse)
+    g.mouse = pygame.mouse.get_pos()
+    for button in g.buttons:
+        button.draw(g.mouse)
 
-    for body in bodies:
+    for body in g.bodies:
         current_total_force_x = 0
         current_total_force_y = 0
-        for other in bodies:
+        for other in g.bodies:
             if other != body:
                 dx = (body.x*SCALE)-(other.x*SCALE)
                 dy = (body.y*SCALE)-(other.y*SCALE)
@@ -221,11 +236,11 @@ while run:
                     if body.mass > other.mass:
                         body.mass += other.mass
                         body.radius += math.floor(other.radius/8)
-                        bodies.remove(other)
+                        g.bodies.remove(other)
                     else:
                         other.mass += body.mass
                         other.radius += math.floor(body.radius/8)
-                        bodies.remove(body) 
+                        g.bodies.remove(body) 
 
                 force_x, force_y = body.attraction(other)
                 current_total_force_x += force_x
@@ -237,8 +252,6 @@ while run:
         body.x += body.x_vel * TIMESTEP
         body.y += body.y_vel * TIMESTEP
         body.draw(WIN)
-      
-
     pygame.display.update()
 
 pygame.quit()
