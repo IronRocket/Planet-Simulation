@@ -1,4 +1,4 @@
-import pygame,math,copy,threading,keyboard
+import pygame,math,copy,threading
 pygame.init()
 
 width,height = 1500,750
